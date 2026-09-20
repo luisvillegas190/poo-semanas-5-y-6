@@ -25,9 +25,7 @@ from modelo import CatalogoProductos, Categoria, Producto
 
 def ejecutar_demostracion_consola() -> None:
     """Demuestra las operaciones CRUD con colecciones (list, dict, set) en consola."""
-    print("=" * 70)
-    print("   SISTEMA DE GESTIÓN DE BODEGA | POO SEMANA 5: COLECCIONES Y CRUD")
-    print("=" * 70)
+    print("\n--- SISTEMA DE GESTIÓN DE BODEGA | POO SEMANA 5: COLECCIONES Y CRUD ---")
     print("Autor: Luis Alberto Villegas Merchan")
     print("Colecciones implementadas: set (unicidad), dict (índice O(1)), list (orden)\n")
 
@@ -84,9 +82,7 @@ def ejecutar_demostracion_consola() -> None:
     print(f"    Total Unidades en Stock: {catalogo.total_unidades_stock()} uds.")
     print(f"    Valor Total del Inventario: ${catalogo.valor_total_inventario():,.2f}")
 
-    print("\n" + "=" * 70)
-    print("   TODAS LAS PRUEBAS DE COLECCIONES Y CRUD FINALIZADAS CON ÉXITO")
-    print("=" * 70)
+    print("\n--- TODAS LAS PRUEBAS DE COLECCIONES Y CRUD FINALIZADAS CON ÉXITO ---\n")
 
 
 def main() -> None:

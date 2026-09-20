@@ -50,9 +50,7 @@ def crear_aplicacion(page: ft.Page) -> None:
     ]
     mapa_categorias = {cat.get_nombre(): cat for cat in categorias_disponibles}
 
-    # =========================================================================
     # CONTROLES DE LA INTERFAZ
-    # =========================================================================
 
     # 1. Campos del Formulario
     txt_codigo = ft.TextField(
@@ -139,9 +137,7 @@ def crear_aplicacion(page: ft.Page) -> None:
         show_bottom_border=True,
     )
 
-    # =========================================================================
     # FUNCIONES AUXILIARES Y MANEJO DE EVENTOS
-    # =========================================================================
 
     def notificar(mensaje: str, es_error: bool = False) -> None:
         """Muestra una notificación emergente (SnackBar) al usuario."""
@@ -169,7 +165,7 @@ def crear_aplicacion(page: ft.Page) -> None:
     def cargar_formulario_desde_producto(producto: Producto) -> None:
         """Carga los datos de un producto en el formulario para editar."""
         txt_codigo.value = producto.get_codigo()
-        txt_codigo.read_only = True  # Bloqueamos el código al editar
+        txt_codigo.read_only = True
         txt_nombre.value = producto.get_nombre()
         txt_precio.value = f"{producto.get_precio():.2f}"
         txt_stock.value = str(producto.get_stock())
@@ -186,7 +182,7 @@ def crear_aplicacion(page: ft.Page) -> None:
 
         for p in productos:
             codigo = p.get_codigo()
-            # Capturador de evento para seleccionar fila
+
             def on_select_click(e, prod=p):
                 cargar_formulario_desde_producto(prod)
 
@@ -252,7 +248,7 @@ def crear_aplicacion(page: ft.Page) -> None:
         btn_eliminar.disabled = True
         page.update()
 
-    # ==================== MANEJADORES DE EVENTOS CRUD ====================
+    # MANEJADORES DE EVENTOS CRUD
 
     def handle_agregar(e) -> None:
         """[CREATE] Evento on_click para registrar un nuevo producto."""
@@ -271,7 +267,6 @@ def crear_aplicacion(page: ft.Page) -> None:
             stock = int(stock_str)
             categoria_obj = mapa_categorias[cat_nombre]
 
-            # Instanciación con validación Pydantic interna
             nuevo_prod = Producto(
                 codigo=codigo,
                 nombre=nombre,
@@ -280,7 +275,6 @@ def crear_aplicacion(page: ft.Page) -> None:
                 categoria=categoria_obj,
             )
 
-            # Inserción en catálogo (valida unicidad con set)
             catalogo.agregar_producto(nuevo_prod)
             notificar(f"✅ Producto '{codigo}' ({nombre}) agregado exitosamente.")
             limpiar_formulario()
@@ -347,10 +341,8 @@ def crear_aplicacion(page: ft.Page) -> None:
         query = txt_buscar.value.strip()
         categoria_sel = dd_filtro_cat.value
 
-        # Paso 1: Filtro por búsqueda de texto (nombre o código)
         resultados = catalogo.buscar_por_nombre(query)
 
-        # Paso 2: Filtro adicional por categoría si aplica
         if categoria_sel and categoria_sel != "Todas":
             resultados = [
                 p for p in resultados
@@ -359,11 +351,10 @@ def crear_aplicacion(page: ft.Page) -> None:
 
         recargar_tabla(resultados)
 
-    # Conectar eventos de búsqueda
     txt_buscar.on_change = handle_buscar_o_filtrar
     dd_filtro_cat.on_change = handle_buscar_o_filtrar
 
-    # 4. Botones de Acción del Formulario
+    # Botones de Acción del Formulario
     btn_agregar = ft.FilledButton(
         "Guardar Producto",
         icon=ft.Icons.ADD_CIRCLE_OUTLINE,
@@ -415,9 +406,7 @@ def crear_aplicacion(page: ft.Page) -> None:
         on_click=toggle_theme,
     )
 
-    # =========================================================================
     # ESTRUCTURA VISUAL (LAYOUT)
-    # =========================================================================
 
     # Encabezado
     header = ft.Container(

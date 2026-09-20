@@ -20,9 +20,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-# =====================================================================
 # MODELOS DE VALIDACIÓN PYDANTIC
-# =====================================================================
 
 class DatosCategoria(BaseModel):
     """Valida los datos requeridos para una categoría."""
@@ -40,9 +38,7 @@ class DatosProducto(BaseModel):
     stock: int = Field(ge=0)
 
 
-# =====================================================================
 # CLASES DE DOMINIO (ENCAPSULACIÓN)
-# =====================================================================
 
 class Categoria:
     """Representa una categoría de productos en la bodega."""
@@ -212,9 +208,7 @@ class Producto:
         return hash(self.__codigo)
 
 
-# =====================================================================
 # SEMANA 5: GESTOR DEL CATÁLOGO MEDIANTE COLECCIONES (list, dict, set)
-# =====================================================================
 
 class CatalogoProductos:
     """
@@ -231,7 +225,7 @@ class CatalogoProductos:
         self.__productos_dict: dict[str, Producto] = {}
         self.__productos_list: list[Producto] = []
 
-    # ==================== OPERACIONES CRUD ====================
+    # OPERACIONES CRUD
 
     def agregar_producto(self, producto: Producto) -> None:
         """
@@ -334,7 +328,7 @@ class CatalogoProductos:
         del self.__productos_dict[codigo_normalizado]
         self.__productos_list.remove(producto)
 
-    # ==================== MÉTRICAS Y REPORTES ====================
+    # MÉTRICAS Y REPORTES
 
     def total_productos(self) -> int:
         """Retorna la cantidad total de productos distintos registrados."""

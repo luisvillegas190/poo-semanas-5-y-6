@@ -25,7 +25,6 @@
 3. [Semana 6: Interfaz Gráfica Flet y Manejo de Eventos](#-semana-6-interfaz-gráfica-flet-y-manejo-de-eventos)
 4. [Estructura del Proyecto](#-estructura-del-proyecto)
 5. [Instrucciones de Instalación y Ejecución](#-instrucciones-de-instalación-y-ejecución)
-6. [Guía de Capturas para el Informe de Blackboard](#-guía-de-capturas-para-el-informe-de-blackboard)
 
 ---
 
@@ -117,19 +116,6 @@ Si deseas ejecutar la demostración automatizada de las colecciones en terminal:
 ```powershell
 python main.py --cli
 ```
-
----
-
-## 📸 Guía de Capturas para el Informe de Blackboard
-
-Para el documento PDF que debes entregar a tu profesor, se recomienda tomar las siguientes capturas de pantalla de la aplicación en funcionamiento:
-
-1. **Pantalla Principal:** Mostrando la ventana con la tabla de productos precargada y las tarjetas de métricas.
-2. **Registro de Producto Nuevo (CREATE):** Llenando el formulario con un nuevo producto y el mensaje verde `SnackBar` de éxito.
-3. **Validación de Código Duplicado:** Intentando registrar un código que ya existe y mostrando la alerta roja del `set`.
-4. **Búsqueda y Filtrado (READ):** Escribiendo en la barra de búsqueda o filtrando por categoría.
-5. **Edición / Actualización (UPDATE):** Modificando el precio o stock de un producto y viendo el cambio en la tabla.
-6. **Eliminación (DELETE):** Eliminando un producto del inventario.
 
 ---
 
