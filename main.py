@@ -94,8 +94,11 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1].lower() in ("--cli", "-c", "--test"):
         ejecutar_demostracion_consola()
     else:
-        # Lanza la interfaz gráfica en Flet
-        ft.app(target=crear_aplicacion)
+        # Lanza la interfaz gráfica en Flet (compatible con Flet 1.0+ y versiones previas)
+        if hasattr(ft, "run"):
+            ft.run(crear_aplicacion)
+        else:
+            ft.app(target=crear_aplicacion)
 
 
 if __name__ == "__main__":

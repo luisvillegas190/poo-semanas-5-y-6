@@ -563,7 +563,10 @@ def crear_aplicacion(page: ft.Page) -> None:
 
 def main():
     """Ejecuta la aplicación de escritorio Flet."""
-    ft.app(target=crear_aplicacion)
+    if hasattr(ft, "run"):
+        ft.run(crear_aplicacion)
+    else:
+        ft.app(target=crear_aplicacion)
 
 
 if __name__ == "__main__":
