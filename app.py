@@ -89,7 +89,7 @@ def crear_aplicacion(page: ft.Page) -> None:
 
     dd_categoria = ft.Dropdown(
         label="Categoría",
-        prefix_icon=ft.Icons.CATEGORY_OUTLINED,
+        leading_icon=ft.Icons.CATEGORY_OUTLINED,
         options=[ft.dropdown.Option(cat.get_nombre()) for cat in categorias_disponibles],
         border_radius=8,
         dense=True,
@@ -133,7 +133,7 @@ def crear_aplicacion(page: ft.Page) -> None:
             ft.DataColumn(ft.Text("Acción", weight=ft.FontWeight.BOLD)),
         ],
         rows=[],
-        border=ft.border.all(1, ft.Colors.BLUE_GREY_100),
+        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
         border_radius=8,
         heading_row_color=ft.Colors.BLUE_50,
         show_bottom_border=True,
@@ -203,7 +203,7 @@ def crear_aplicacion(page: ft.Page) -> None:
                                 content=ft.Text(p.get_categoria().get_nombre(), size=12, color=ft.Colors.BLUE_900),
                                 bgcolor=ft.Colors.BLUE_100,
                                 border_radius=6,
-                                padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                                padding=ft.Padding.symmetric(horizontal=8, vertical=2),
                             )
                         ),
                         ft.DataCell(ft.Text(f"${p.get_precio():,.2f}")),
@@ -321,7 +321,7 @@ def crear_aplicacion(page: ft.Page) -> None:
             limpiar_formulario()
             recargar_tabla()
 
-        except (ValidationError, ValueError, KeyError) as err:
+        except (ValidationError, ValueError, KeyError, TypeError) as err:
             notificar(f"Error al actualizar: {err}", es_error=True)
 
     def ejecutar_eliminacion_directa(codigo: str) -> None:
@@ -364,7 +364,7 @@ def crear_aplicacion(page: ft.Page) -> None:
     dd_filtro_cat.on_change = handle_buscar_o_filtrar
 
     # 4. Botones de Acción del Formulario
-    btn_agregar = ft.ElevatedButton(
+    btn_agregar = ft.FilledButton(
         "Guardar Producto",
         icon=ft.Icons.ADD_CIRCLE_OUTLINE,
         bgcolor=ft.Colors.BLUE_700,
@@ -373,7 +373,7 @@ def crear_aplicacion(page: ft.Page) -> None:
         on_click=handle_agregar,
     )
 
-    btn_actualizar = ft.ElevatedButton(
+    btn_actualizar = ft.FilledButton(
         "Actualizar",
         icon=ft.Icons.EDIT_NOTE,
         bgcolor=ft.Colors.AMBER_800,
@@ -383,7 +383,7 @@ def crear_aplicacion(page: ft.Page) -> None:
         on_click=handle_actualizar,
     )
 
-    btn_eliminar = ft.ElevatedButton(
+    btn_eliminar = ft.FilledButton(
         "Eliminar",
         icon=ft.Icons.DELETE_FOREVER,
         bgcolor=ft.Colors.RED_700,
@@ -439,7 +439,7 @@ def crear_aplicacion(page: ft.Page) -> None:
             ]),
             theme_btn,
         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-        padding=ft.padding.only(bottom=10),
+        padding=ft.Padding.only(bottom=10),
     )
 
     # Tarjetas de Métricas
@@ -453,7 +453,7 @@ def crear_aplicacion(page: ft.Page) -> None:
                 ], spacing=1),
             ]),
             bgcolor=ft.Colors.BLUE_50,
-            border=ft.border.all(1, ft.Colors.BLUE_200),
+            border=ft.Border.all(1, ft.Colors.BLUE_200),
             border_radius=10,
             padding=15,
             expand=True,
@@ -467,7 +467,7 @@ def crear_aplicacion(page: ft.Page) -> None:
                 ], spacing=1),
             ]),
             bgcolor=ft.Colors.GREEN_50,
-            border=ft.border.all(1, ft.Colors.GREEN_200),
+            border=ft.Border.all(1, ft.Colors.GREEN_200),
             border_radius=10,
             padding=15,
             expand=True,
@@ -481,7 +481,7 @@ def crear_aplicacion(page: ft.Page) -> None:
                 ], spacing=1),
             ]),
             bgcolor=ft.Colors.PURPLE_50,
-            border=ft.border.all(1, ft.Colors.PURPLE_200),
+            border=ft.Border.all(1, ft.Colors.PURPLE_200),
             border_radius=10,
             padding=15,
             expand=True,
@@ -508,7 +508,7 @@ def crear_aplicacion(page: ft.Page) -> None:
         ], spacing=12),
         width=380,
         bgcolor=ft.Colors.WHITE,
-        border=ft.border.all(1, ft.Colors.BLUE_GREY_100),
+        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
         border_radius=12,
         padding=18,
     )
@@ -528,14 +528,14 @@ def crear_aplicacion(page: ft.Page) -> None:
                     expand=True,
                 ),
                 expand=True,
-                border=ft.border.all(1, ft.Colors.GREY_200),
+                border=ft.Border.all(1, ft.Colors.GREY_200),
                 border_radius=8,
                 padding=5,
             ),
         ], spacing=12),
         expand=True,
         bgcolor=ft.Colors.WHITE,
-        border=ft.border.all(1, ft.Colors.BLUE_GREY_100),
+        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
         border_radius=12,
         padding=18,
     )
