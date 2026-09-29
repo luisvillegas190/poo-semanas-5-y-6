@@ -4,16 +4,21 @@ app.py
 
 Interfaz Gráfica de Usuario (GUI) desarrollada con Flet para el Sistema de Bodega.
 
-Actividad: POO — Semana 6: Interfaz gráfica y manejo de eventos
-Autor: Luis Alberto Villegas Merchan
+Actividad: Semana 7 — Patrones de Diseño, Testing Unitario y TDAs Lineales.
+Materia: Programación Estructurada / Programación Orientada a Objetos
+Estudiante: Luis Alberto Villegas Merchan
 
-Características:
-- Formulario de captura y edición de productos con validaciones.
-- Manejo de eventos en botones (Crear, Consultar, Actualizar, Eliminar, Limpiar).
-- Búsqueda y filtrado dinámico en tiempo real (evento on_change).
-- Tabla de datos interactiva (DataTable) con selección de filas.
-- Tarjetas de métricas del inventario actualizadas en tiempo real.
-- Notificaciones emergentes (SnackBar) para retroalimentación al usuario.
+NUEVAS CARACTERÍSTICAS INTEGRADAS (SEMANA 7):
+1. Arquitectura desacoplada basada en el Patrón Repository:
+   - IProductoRepository (ProductoRepositoryMemoria) para gestión de inventario.
+   - IDespachoRepository (DespachoColaRepository) que integra la 'ColaLineal' manual (FIFO).
+2. Pestaña interactiva "Centro de Despachos (Cola FIFO)":
+   - Encolar solicitudes de despacho verificando existencias físicas en tiempo real.
+   - Visualización interactiva de la Cola Lineal manual (orden de turno, frente/peek).
+   - Operación de Despacho FIFO con descuento automático de stock en bodega.
+   - Historial de auditoría respaldado por la PilaLineal manual (LIFO).
+3. Pestaña "Catálogo de Productos":
+   - CRUD completo, filtros, validaciones con Pydantic y métricas globales.
 """
 
 from __future__ import annotations
@@ -21,126 +26,61 @@ from __future__ import annotations
 import flet as ft
 from pydantic import ValidationError
 
-from modelo import CatalogoProductos, Categoria, Producto
+from estructuras_lineales import ColaVaciaError
+from modelo import Categoria, PedidoDespacho, Producto
+from repositorio import DespachoColaRepository, ProductoRepositoryMemoria
 
 
 def crear_aplicacion(page: ft.Page) -> None:
-    """Configura y ejecuta la interfaz gráfica de usuario en Flet."""
+    """Configura y orquesta la interfaz gráfica Flet con el patrón Repository."""
 
-    # Configuración de la ventana principal
-    page.title = "Sistema de Gestión de Bodega — Catálogo de Productos"
+    # 1. Configuración de la ventana principal
+    page.title = "Sistema de Bodega — Patrones de Diseño y TDA Lineales (Semana 7)"
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.padding = 20
-    page.window.width = 1200
-    page.window.height = 800
-    page.window.min_width = 900
-    page.window.min_height = 650
+    page.padding = 16
+    page.window.width = 1250
+    page.window.height = 840
+    page.window.min_width = 950
+    page.window.min_height = 700
 
-    # Instancia del catálogo con colecciones (Semana 5)
-    catalogo = CatalogoProductos()
-    catalogo.cargar_datos_iniciales()
+    # 2. Inicialización de Repositorios (Capa de Acceso a Datos Desacoplada)
+    repo_productos = ProductoRepositoryMemoria()
+    repo_despachos = DespachoColaRepository(producto_repo=repo_productos)
 
-    # Categorías disponibles
-    categorias_disponibles = [
-        Categoria("CAT-ACC", "Accesorios"),
-        Categoria("CAT-ELE", "Electrónica"),
-        Categoria("CAT-HER", "Herramientas"),
-        Categoria("CAT-RED", "Redes y Conectividad"),
-        Categoria("CAT-ALM", "Almacenamiento"),
-    ]
+    # Categorías y productos iniciales para demostración
+    cat_acc = Categoria("CAT-ACC", "Accesorios")
+    cat_elec = Categoria("CAT-ELE", "Electrónica")
+    cat_her = Categoria("CAT-HER", "Herramientas")
+    cat_red = Categoria("CAT-RED", "Redes y Conectividad")
+    cat_alm = Categoria("CAT-ALM", "Almacenamiento")
+
+    categorias_disponibles = [cat_acc, cat_elec, cat_her, cat_red, cat_alm]
     mapa_categorias = {cat.get_nombre(): cat for cat in categorias_disponibles}
 
-    # CONTROLES DE LA INTERFAZ
+    productos_demo = [
+        Producto("PRD-001", "Lector de Código de Barras Láser RF", 145.00, 25, cat_acc),
+        Producto("PRD-002", "Terminal Portátil de Inventario Android", 380.00, 12, cat_elec),
+        Producto("PRD-003", "Impresora Térmica de Etiquetas 4x6", 210.00, 18, cat_elec),
+        Producto("PRD-004", "Bobina de Cable UTP Cat6 305m", 85.50, 30, cat_red),
+        Producto("PRD-005", "Transpaleta Hidráulica Manual 2.5 Ton", 450.00, 6, cat_her),
+        Producto("PRD-006", "Switch Gigabit Gestionable 24 Puertos", 175.00, 15, cat_red),
+        Producto("PRD-007", "Disco Sólido SSD NVMe 1TB Industrial", 115.00, 40, cat_alm),
+    ]
+    for p in productos_demo:
+        repo_productos.guardar(p)
 
-    # 1. Campos del Formulario
-    txt_codigo = ft.TextField(
-        label="Código del Producto",
-        prefix_icon=ft.Icons.QR_CODE_2,
-        hint_text="Ej: PRD-007",
-        border_radius=8,
-        dense=True,
+    # Precargar dos órdenes de despacho para demostrar la Cola FIFO desde el inicio
+    repo_despachos.encolar_despacho(
+        PedidoDespacho("ORD-101", "Sucursal Guayaquil Centro", "PRD-001", "Lector Láser", 3)
+    )
+    repo_despachos.encolar_despacho(
+        PedidoDespacho("ORD-102", "Logística Quito Norte", "PRD-003", "Impresora Térmica", 2)
     )
 
-    txt_nombre = ft.TextField(
-        label="Nombre del Producto",
-        prefix_icon=ft.Icons.INVENTORY_2_OUTLINED,
-        hint_text="Ej: Lector Óptico de Código de Barras",
-        border_radius=8,
-        dense=True,
-    )
+    contador_pedidos = 103
 
-    txt_precio = ft.TextField(
-        label="Precio Unitario ($)",
-        prefix_icon=ft.Icons.ATTACH_MONEY,
-        hint_text="Ej: 125.50",
-        border_radius=8,
-        dense=True,
-    )
-
-    txt_stock = ft.TextField(
-        label="Cantidad en Stock",
-        prefix_icon=ft.Icons.NUMBERS,
-        hint_text="Ej: 20",
-        border_radius=8,
-        dense=True,
-    )
-
-    dd_categoria = ft.Dropdown(
-        label="Categoría",
-        leading_icon=ft.Icons.CATEGORY_OUTLINED,
-        options=[ft.dropdown.Option(cat.get_nombre()) for cat in categorias_disponibles],
-        border_radius=8,
-        dense=True,
-        value="Accesorios",
-    )
-
-    # 2. Controles de Búsqueda y Filtro
-    txt_buscar = ft.TextField(
-        label="Buscar por código o nombre...",
-        prefix_icon=ft.Icons.SEARCH,
-        border_radius=8,
-        dense=True,
-        expand=True,
-    )
-
-    dd_filtro_cat = ft.Dropdown(
-        label="Filtrar por Categoría",
-        options=[ft.dropdown.Option("Todas")] + [
-            ft.dropdown.Option(cat.get_nombre()) for cat in categorias_disponibles
-        ],
-        value="Todas",
-        border_radius=8,
-        dense=True,
-        width=220,
-    )
-
-    # 3. Métricas del Inventario
-    lbl_total_productos = ft.Text("0", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900)
-    lbl_total_stock = ft.Text("0", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_900)
-    lbl_valor_inventario = ft.Text("$0.00", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_900)
-
-    # 4. Tabla de Productos (DataTable)
-    tabla_productos = ft.DataTable(
-        columns=[
-            ft.DataColumn(ft.Text("Código", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Nombre del Producto", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Categoría", weight=ft.FontWeight.BOLD)),
-            ft.DataColumn(ft.Text("Precio", weight=ft.FontWeight.BOLD), numeric=True),
-            ft.DataColumn(ft.Text("Stock", weight=ft.FontWeight.BOLD), numeric=True),
-            ft.DataColumn(ft.Text("Valor Total", weight=ft.FontWeight.BOLD), numeric=True),
-            ft.DataColumn(ft.Text("Acción", weight=ft.FontWeight.BOLD)),
-        ],
-        rows=[],
-        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
-        border_radius=8,
-        heading_row_color=ft.Colors.BLUE_50,
-        show_bottom_border=True,
-    )
-
-    # FUNCIONES AUXILIARES Y MANEJO DE EVENTOS
-
+    # FUNCIÓN AUXILIAR DE NOTIFICACIÓN (SnackBar)
     def notificar(mensaje: str, es_error: bool = False) -> None:
-        """Muestra una notificación emergente (SnackBar) al usuario."""
         snack = ft.SnackBar(
             content=ft.Row([
                 ft.Icon(
@@ -156,38 +96,122 @@ def crear_aplicacion(page: ft.Page) -> None:
         snack.open = True
         page.update()
 
-    def actualizar_metricas() -> None:
-        """Actualiza los valores de las tarjetas de métricas."""
-        lbl_total_productos.value = str(catalogo.total_productos())
-        lbl_total_stock.value = f"{catalogo.total_unidades_stock()} uds."
-        lbl_valor_inventario.value = f"${catalogo.valor_total_inventario():,.2f}"
+    # ========================================================
+    # SECCIÓN 1: CONTROLES DEL CATÁLOGO DE PRODUCTOS
+    # ========================================================
 
-    def cargar_formulario_desde_producto(producto: Producto) -> None:
-        """Carga los datos de un producto en el formulario para editar."""
-        txt_codigo.value = producto.get_codigo()
+    txt_codigo = ft.TextField(
+        label="Código del Producto",
+        prefix_icon=ft.Icons.QR_CODE_2,
+        hint_text="Ej: PRD-008",
+        border_radius=8,
+        dense=True,
+    )
+    txt_nombre = ft.TextField(
+        label="Nombre del Producto",
+        prefix_icon=ft.Icons.INVENTORY_2_OUTLINED,
+        hint_text="Ej: Multímetro Digital Industrial",
+        border_radius=8,
+        dense=True,
+    )
+    txt_precio = ft.TextField(
+        label="Precio Unitario ($)",
+        prefix_icon=ft.Icons.ATTACH_MONEY,
+        hint_text="Ej: 85.00",
+        border_radius=8,
+        dense=True,
+    )
+    txt_stock = ft.TextField(
+        label="Cantidad en Stock",
+        prefix_icon=ft.Icons.NUMBERS,
+        hint_text="Ej: 15",
+        border_radius=8,
+        dense=True,
+    )
+    dd_categoria = ft.Dropdown(
+        label="Categoría",
+        leading_icon=ft.Icons.CATEGORY_OUTLINED,
+        options=[ft.dropdown.Option(cat.get_nombre()) for cat in categorias_disponibles],
+        border_radius=8,
+        dense=True,
+        value="Accesorios",
+    )
+
+    txt_buscar = ft.TextField(
+        label="Buscar producto por código o nombre...",
+        prefix_icon=ft.Icons.SEARCH,
+        border_radius=8,
+        dense=True,
+        expand=True,
+    )
+    dd_filtro_cat = ft.Dropdown(
+        label="Filtrar por Categoría",
+        options=[ft.dropdown.Option("Todas")] + [
+            ft.dropdown.Option(cat.get_nombre()) for cat in categorias_disponibles
+        ],
+        value="Todas",
+        border_radius=8,
+        dense=True,
+        width=220,
+    )
+
+    # Tarjetas de Métricas del Inventario
+    lbl_total_productos = ft.Text("0", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900)
+    lbl_total_stock = ft.Text("0 uds.", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_900)
+    lbl_valor_inventario = ft.Text("$0.00", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.PURPLE_900)
+
+    tabla_productos = ft.DataTable(
+        columns=[
+            ft.DataColumn(ft.Text("Código", weight=ft.FontWeight.BOLD)),
+            ft.DataColumn(ft.Text("Nombre del Producto", weight=ft.FontWeight.BOLD)),
+            ft.DataColumn(ft.Text("Categoría", weight=ft.FontWeight.BOLD)),
+            ft.DataColumn(ft.Text("Precio", weight=ft.FontWeight.BOLD), numeric=True),
+            ft.DataColumn(ft.Text("Stock", weight=ft.FontWeight.BOLD), numeric=True),
+            ft.DataColumn(ft.Text("Valor Total", weight=ft.FontWeight.BOLD), numeric=True),
+            ft.DataColumn(ft.Text("Acciones", weight=ft.FontWeight.BOLD)),
+        ],
+        rows=[],
+        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
+        border_radius=8,
+        heading_row_color=ft.Colors.BLUE_50,
+        show_bottom_border=True,
+    )
+
+    def actualizar_metricas_inventario() -> None:
+        lbl_total_productos.value = str(repo_productos.contar())
+        lbl_total_stock.value = f"{repo_productos.total_unidades()} uds."
+        lbl_valor_inventario.value = f"${repo_productos.valor_total():,.2f}"
+
+    def cargar_en_formulario(prod: Producto) -> None:
+        txt_codigo.value = prod.get_codigo()
         txt_codigo.read_only = True
-        txt_nombre.value = producto.get_nombre()
-        txt_precio.value = f"{producto.get_precio():.2f}"
-        txt_stock.value = str(producto.get_stock())
-        dd_categoria.value = producto.get_categoria().get_nombre()
-        btn_agregar.disabled = True
-        btn_actualizar.disabled = False
-        btn_eliminar.disabled = False
+        txt_nombre.value = prod.get_nombre()
+        txt_precio.value = f"{prod.get_precio():.2f}"
+        txt_stock.value = str(prod.get_stock())
+        dd_categoria.value = prod.get_categoria().get_nombre()
+        btn_agregar_prod.disabled = True
+        btn_actualizar_prod.disabled = False
+        btn_eliminar_prod.disabled = False
         page.update()
 
-    def recargar_tabla(lista_filtrada: list[Producto] | None = None) -> None:
-        """Regenera las filas de la tabla según los datos del catálogo."""
-        productos = lista_filtrada if lista_filtrada is not None else catalogo.listar_todos()
+    def recargar_tabla_productos(lista: list[Producto] | None = None) -> None:
+        productos = lista if lista is not None else repo_productos.obtener_todos()
         filas = []
 
         for p in productos:
             codigo = p.get_codigo()
 
-            def on_select_click(e, prod=p):
-                cargar_formulario_desde_producto(prod)
+            def on_edit_click(e, item=p):
+                cargar_en_formulario(item)
 
-            def on_delete_click(e, cod=codigo):
-                ejecutar_eliminacion_directa(cod)
+            def on_del_click(e, cod=codigo):
+                try:
+                    repo_productos.eliminar(cod)
+                    notificar(f"🗑️ Producto '{cod}' eliminado del catálogo.")
+                    limpiar_formulario_producto()
+                    recargar_todo()
+                except KeyError as err:
+                    notificar(str(err), es_error=True)
 
             filas.append(
                 ft.DataRow(
@@ -196,7 +220,11 @@ def crear_aplicacion(page: ft.Page) -> None:
                         ft.DataCell(ft.Text(p.get_nombre())),
                         ft.DataCell(
                             ft.Container(
-                                content=ft.Text(p.get_categoria().get_nombre(), size=12, color=ft.Colors.BLUE_900),
+                                content=ft.Text(
+                                    p.get_categoria().get_nombre(),
+                                    size=12,
+                                    color=ft.Colors.BLUE_900,
+                                ),
                                 bgcolor=ft.Colors.BLUE_100,
                                 border_radius=6,
                                 padding=ft.Padding.symmetric(horizontal=8, vertical=2),
@@ -216,179 +244,618 @@ def crear_aplicacion(page: ft.Page) -> None:
                                 ft.IconButton(
                                     icon=ft.Icons.EDIT_OUTLINED,
                                     icon_color=ft.Colors.BLUE_700,
-                                    tooltip="Cargar en formulario para editar",
-                                    on_click=on_select_click,
+                                    tooltip="Editar producto",
+                                    on_click=on_edit_click,
                                 ),
                                 ft.IconButton(
                                     icon=ft.Icons.DELETE_OUTLINE,
                                     icon_color=ft.Colors.RED_700,
                                     tooltip="Eliminar producto",
-                                    on_click=on_delete_click,
+                                    on_click=on_del_click,
                                 ),
                             ], spacing=0)
                         ),
-                    ],
+                    ]
                 )
             )
 
         tabla_productos.rows = filas
-        actualizar_metricas()
+        actualizar_metricas_inventario()
+        actualizar_dropdown_despachos()
         page.update()
 
-    def limpiar_formulario(e=None) -> None:
-        """Limpia los campos del formulario y restablece los botones."""
+    def limpiar_formulario_producto(e=None) -> None:
         txt_codigo.value = ""
         txt_codigo.read_only = False
         txt_nombre.value = ""
         txt_precio.value = ""
         txt_stock.value = ""
         dd_categoria.value = "Accesorios"
-        btn_agregar.disabled = False
-        btn_actualizar.disabled = True
-        btn_eliminar.disabled = True
+        btn_agregar_prod.disabled = False
+        btn_actualizar_prod.disabled = True
+        btn_eliminar_prod.disabled = True
         page.update()
 
-    # MANEJADORES DE EVENTOS CRUD
-
-    def handle_agregar(e) -> None:
-        """[CREATE] Evento on_click para registrar un nuevo producto."""
-        codigo = txt_codigo.value.strip()
-        nombre = txt_nombre.value.strip()
-        precio_str = txt_precio.value.strip()
+    def handle_agregar_producto(e) -> None:
+        cod = txt_codigo.value.strip()
+        nom = txt_nombre.value.strip()
+        prec_str = txt_precio.value.strip()
         stock_str = txt_stock.value.strip()
-        cat_nombre = dd_categoria.value
+        cat_nom = dd_categoria.value
 
-        if not codigo or not nombre or not precio_str or not stock_str or not cat_nombre:
-            notificar("Por favor, complete todos los campos del formulario.", es_error=True)
+        if not cod or not nom or not prec_str or not stock_str or not cat_nom:
+            notificar("Por favor, complete todos los campos.", es_error=True)
             return
 
         try:
-            precio = float(precio_str)
-            stock = int(stock_str)
-            categoria_obj = mapa_categorias[cat_nombre]
-
-            nuevo_prod = Producto(
-                codigo=codigo,
-                nombre=nombre,
-                precio=precio,
-                stock=stock,
-                categoria=categoria_obj,
-            )
-
-            catalogo.agregar_producto(nuevo_prod)
-            notificar(f"✅ Producto '{codigo}' ({nombre}) agregado exitosamente.")
-            limpiar_formulario()
-            recargar_tabla()
-
+            prec = float(prec_str)
+            stk = int(stock_str)
+            cat_obj = mapa_categorias[cat_nom]
+            nuevo = Producto(codigo=cod, nombre=nom, precio=prec, stock=stk, categoria=cat_obj)
+            repo_productos.guardar(nuevo)
+            notificar(f"✅ Producto '{cod}' guardado exitosamente.")
+            limpiar_formulario_producto()
+            recargar_todo()
         except ValidationError as err:
-            primer_error = err.errors()[0]["msg"]
-            notificar(f"Error de validación: {primer_error}", es_error=True)
-        except (ValueError, KeyError, TypeError) as err:
+            notificar(f"Validación: {err.errors()[0]['msg']}", es_error=True)
+        except (ValueError, KeyError) as err:
             notificar(str(err), es_error=True)
 
-    def handle_actualizar(e) -> None:
-        """[UPDATE] Evento on_click para modificar el producto seleccionado."""
-        codigo = txt_codigo.value.strip()
-        nombre = txt_nombre.value.strip()
-        precio_str = txt_precio.value.strip()
+    def handle_actualizar_producto(e) -> None:
+        cod = txt_codigo.value.strip()
+        nom = txt_nombre.value.strip()
+        prec_str = txt_precio.value.strip()
         stock_str = txt_stock.value.strip()
-        cat_nombre = dd_categoria.value
-
-        if not codigo or not nombre or not precio_str or not stock_str:
-            notificar("Debe llenar todos los campos para actualizar.", es_error=True)
-            return
+        cat_nom = dd_categoria.value
 
         try:
-            precio = float(precio_str)
-            stock = int(stock_str)
-            categoria_obj = mapa_categorias[cat_nombre]
-
-            catalogo.actualizar_producto(
-                codigo=codigo,
-                nuevo_nombre=nombre,
-                nuevo_precio=precio,
-                nuevo_stock=stock,
-                nueva_categoria=categoria_obj,
+            prec = float(prec_str)
+            stk = int(stock_str)
+            cat_obj = mapa_categorias[cat_nom]
+            repo_productos.actualizar(
+                codigo=cod,
+                nombre=nom,
+                precio=prec,
+                stock=stk,
+                categoria=cat_obj,
             )
+            notificar(f"✏️ Producto '{cod}' actualizado.")
+            limpiar_formulario_producto()
+            recargar_todo()
+        except (ValidationError, ValueError, KeyError) as err:
+            notificar(f"Error: {err}", es_error=True)
 
-            notificar(f"✏️ Producto '{codigo}' actualizado correctamente.")
-            limpiar_formulario()
-            recargar_tabla()
-
-        except (ValidationError, ValueError, KeyError, TypeError) as err:
-            notificar(f"Error al actualizar: {err}", es_error=True)
-
-    def ejecutar_eliminacion_directa(codigo: str) -> None:
-        """[DELETE] Elimina un producto por su código."""
-        try:
-            catalogo.eliminar_producto(codigo)
-            notificar(f"🗑️ Producto '{codigo}' eliminado del catálogo.")
-            limpiar_formulario()
-            recargar_tabla()
-        except KeyError as err:
-            notificar(str(err), es_error=True)
-
-    def handle_eliminar(e) -> None:
-        """[DELETE] Evento on_click para eliminar el producto en formulario."""
-        codigo = txt_codigo.value.strip()
-        if not codigo:
-            notificar("Seleccione un producto para eliminar.", es_error=True)
-            return
-        ejecutar_eliminacion_directa(codigo)
-
-    def handle_buscar_o_filtrar(e) -> None:
-        """[READ] Evento on_change en búsqueda o cambio de categoría."""
+    def handle_filtrar_productos(e) -> None:
         query = txt_buscar.value.strip()
-        categoria_sel = dd_filtro_cat.value
+        cat = dd_filtro_cat.value
+        resultados = repo_productos.buscar_por_nombre(query)
+        if cat and cat != "Todas":
+            resultados = [p for p in resultados if p.get_categoria().get_nombre().lower() == cat.lower()]
+        recargar_tabla_productos(resultados)
 
-        resultados = catalogo.buscar_por_nombre(query)
+    txt_buscar.on_change = handle_filtrar_productos
+    dd_filtro_cat.on_change = handle_filtrar_productos
 
-        if categoria_sel and categoria_sel != "Todas":
-            resultados = [
-                p for p in resultados
-                if p.get_categoria().get_nombre().lower() == categoria_sel.lower()
-            ]
-
-        recargar_tabla(resultados)
-
-    txt_buscar.on_change = handle_buscar_o_filtrar
-    dd_filtro_cat.on_change = handle_buscar_o_filtrar
-
-    # Botones de Acción del Formulario
-    btn_agregar = ft.FilledButton(
+    btn_agregar_prod = ft.FilledButton(
         "Guardar Producto",
         icon=ft.Icons.ADD_CIRCLE_OUTLINE,
         bgcolor=ft.Colors.BLUE_700,
         color=ft.Colors.WHITE,
-        height=42,
-        on_click=handle_agregar,
+        height=40,
+        on_click=handle_agregar_producto,
     )
-
-    btn_actualizar = ft.FilledButton(
+    btn_actualizar_prod = ft.FilledButton(
         "Actualizar",
         icon=ft.Icons.EDIT_NOTE,
         bgcolor=ft.Colors.AMBER_800,
         color=ft.Colors.WHITE,
-        height=42,
+        height=40,
         disabled=True,
-        on_click=handle_actualizar,
+        on_click=handle_actualizar_producto,
     )
-
-    btn_eliminar = ft.FilledButton(
+    btn_eliminar_prod = ft.FilledButton(
         "Eliminar",
         icon=ft.Icons.DELETE_FOREVER,
         bgcolor=ft.Colors.RED_700,
         color=ft.Colors.WHITE,
-        height=42,
+        height=40,
         disabled=True,
-        on_click=handle_eliminar,
+        on_click=lambda e: recargar_tabla_productos(),
     )
-
-    btn_limpiar = ft.OutlinedButton(
+    btn_limpiar_prod = ft.OutlinedButton(
         "Limpiar",
         icon=ft.Icons.CLEANING_SERVICES_OUTLINED,
-        height=42,
-        on_click=limpiar_formulario,
+        height=40,
+        on_click=limpiar_formulario_producto,
+    )
+
+    # ========================================================
+    # SECCIÓN 2: CENTRO DE DESPACHOS (COLA FIFO MANUAL - SEMANA 7)
+    # ========================================================
+
+    txt_dsp_id = ft.TextField(
+        label="ID de Orden",
+        value=f"ORD-{contador_pedidos}",
+        read_only=True,
+        width=130,
+        dense=True,
+        border_radius=8,
+    )
+    txt_dsp_cliente = ft.TextField(
+        label="Cliente / Sucursal Solicitante",
+        hint_text="Ej: Distribuidora Central S.A.",
+        prefix_icon=ft.Icons.BUSINESS_OUTLINED,
+        dense=True,
+        border_radius=8,
+        expand=True,
+    )
+    dd_dsp_producto = ft.Dropdown(
+        label="Producto a Despachar",
+        leading_icon=ft.Icons.INVENTORY_OUTLINED,
+        options=[],
+        dense=True,
+        border_radius=8,
+        expand=True,
+    )
+    txt_dsp_cantidad = ft.TextField(
+        label="Cantidad",
+        hint_text="Ej: 5",
+        prefix_icon=ft.Icons.NUMBERS,
+        dense=True,
+        border_radius=8,
+        width=120,
+    )
+
+    lbl_cola_total = ft.Text("0", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_900)
+    lbl_cola_frente = ft.Text("Cola Vacía", size=15, weight=ft.FontWeight.W_600, color=ft.Colors.BLUE_900)
+    lbl_historial_total = ft.Text("0", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.TEAL_900)
+
+    lista_visual_cola = ft.ListView(
+        spacing=8,
+        padding=10,
+        expand=True,
+    )
+
+    lista_visual_historial = ft.ListView(
+        spacing=6,
+        padding=10,
+        expand=True,
+    )
+
+    def actualizar_dropdown_despachos() -> None:
+        prods = repo_productos.obtener_todos()
+        dd_dsp_producto.options = [
+            ft.dropdown.Option(
+                key=p.get_codigo(),
+                text=f"[{p.get_codigo()}] {p.get_nombre()} (Stock: {p.get_stock()})",
+            )
+            for p in prods
+        ]
+        if prods and not dd_dsp_producto.value:
+            dd_dsp_producto.value = prods[0].get_codigo()
+
+    def recargar_vista_despachos() -> None:
+        nonlocal contador_pedidos
+        # Métricas de la cola
+        total_p = repo_despachos.total_pendientes()
+        lbl_cola_total.value = str(total_p)
+        lbl_historial_total.value = str(len(repo_despachos.listar_historial()))
+
+        if not repo_despachos.esta_vacio():
+            proximo = repo_despachos.consultar_proximo()
+            lbl_cola_frente.value = (
+                f"[{proximo.get_id_pedido()}] {proximo.get_cliente()} "
+                f"({proximo.get_nombre_producto()} x{proximo.get_cantidad()})"
+            )
+            btn_despachar_fifo.disabled = False
+        else:
+            lbl_cola_frente.value = "Ninguno (Cola Vacía)"
+            btn_despachar_fifo.disabled = True
+
+        # Renderizar elementos de la Cola FIFO
+        pendientes = repo_despachos.listar_pendientes()
+        tarjetas_cola = []
+
+        if not pendientes:
+            tarjetas_cola.append(
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.CHECK_CIRCLE, color=ft.Colors.GREEN_600, size=28),
+                        ft.Text("No hay órdenes pendientes en la cola. Todos los despachos están al día.", size=14, color=ft.Colors.GREY_700),
+                    ], alignment=ft.MainAxisAlignment.CENTER),
+                    padding=20,
+                    alignment=ft.alignment.center,
+                )
+            )
+        else:
+            for idx, ped in enumerate(pendientes, start=1):
+                es_frente = (idx == 1)
+                tarjetas_cola.append(
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Container(
+                                content=ft.Column([
+                                    ft.Text(
+                                        "TURNO 1 (AL FRENTE)" if es_frente else f"TURNO {idx}",
+                                        size=11,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=ft.Colors.WHITE,
+                                    ),
+                                    ft.Text(
+                                        "PRÓXIMO EN SALIR" if es_frente else "EN ESPERA",
+                                        size=9,
+                                        color=ft.Colors.WHITE,
+                                    ),
+                                ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                                bgcolor=ft.Colors.GREEN_700 if es_frente else ft.Colors.BLUE_GREY_600,
+                                border_radius=6,
+                                padding=ft.Padding.symmetric(horizontal=10, vertical=8),
+                                width=130,
+                            ),
+                            ft.Column([
+                                ft.Row([
+                                    ft.Text(ped.get_id_pedido(), size=15, weight=ft.FontWeight.BOLD),
+                                    ft.Text(f"• {ped.get_cliente()}", size=14, weight=ft.FontWeight.W_500),
+                                ]),
+                                ft.Text(
+                                    f"Producto: {ped.get_nombre_producto()} ({ped.get_codigo_producto()}) | Cantidad: {ped.get_cantidad()} uds.",
+                                    size=13,
+                                    color=ft.Colors.GREY_800,
+                                ),
+                                ft.Text(f"Fecha de ingreso: {ped.get_fecha_registro()}", size=11, color=ft.Colors.GREY_600),
+                            ], spacing=2, expand=True),
+                            ft.Icon(
+                                ft.Icons.FAST_FORWARD if es_frente else ft.Icons.HOURGLASS_BOTTOM,
+                                color=ft.Colors.GREEN_700 if es_frente else ft.Colors.GREY_500,
+                                size=28,
+                            ),
+                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                        bgcolor=ft.Colors.GREEN_50 if es_frente else ft.Colors.GREY_50,
+                        border=ft.Border.all(1.5 if es_frente else 1, ft.Colors.GREEN_400 if es_frente else ft.Colors.GREY_300),
+                        border_radius=8,
+                        padding=10,
+                    )
+                )
+
+        lista_visual_cola.controls = tarjetas_cola
+
+        # Renderizar historial de la Pila LIFO
+        historial = repo_despachos.listar_historial()
+        tarjetas_hist = []
+        for ped in historial:
+            tarjetas_hist.append(
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.DONE_ALL, color=ft.Colors.TEAL_700, size=20),
+                        ft.Text(f"{ped.get_id_pedido()}", weight=ft.FontWeight.BOLD, size=13),
+                        ft.Text(f"{ped.get_cliente()}", size=12, expand=True),
+                        ft.Text(f"{ped.get_codigo_producto()} x{ped.get_cantidad()} uds.", size=12, color=ft.Colors.BLUE_900),
+                        ft.Container(
+                            content=ft.Text("DESPACHADO", size=10, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                            bgcolor=ft.Colors.TEAL_700,
+                            padding=ft.Padding.symmetric(horizontal=6, vertical=2),
+                            border_radius=4,
+                        ),
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    bgcolor=ft.Colors.WHITE,
+                    border=ft.Border.all(1, ft.Colors.GREY_200),
+                    border_radius=6,
+                    padding=8,
+                )
+            )
+        lista_visual_historial.controls = tarjetas_hist
+        page.update()
+
+    def handle_encolar_despacho(e) -> None:
+        nonlocal contador_pedidos
+        cliente = txt_dsp_cliente.value.strip()
+        cod_prod = dd_dsp_producto.value
+        cant_str = txt_dsp_cantidad.value.strip()
+
+        if not cliente or not cod_prod or not cant_str:
+            notificar("Por favor complete todos los datos de la orden de despacho.", es_error=True)
+            return
+
+        try:
+            cant = int(cant_str)
+            prod = repo_productos.obtener_por_codigo(cod_prod)
+            if not prod:
+                notificar("El producto seleccionado no existe.", es_error=True)
+                return
+
+            nuevo_pedido = PedidoDespacho(
+                id_pedido=f"ORD-{contador_pedidos}",
+                cliente=cliente,
+                codigo_producto=prod.get_codigo(),
+                nombre_producto=prod.get_nombre(),
+                cantidad=cant,
+            )
+
+            # Inserción en la ColaLineal mediante el Repository
+            repo_despachos.encolar_despacho(nuevo_pedido)
+            notificar(f"📥 Orden '{nuevo_pedido.get_id_pedido()}' agregada a la Cola FIFO con éxito.")
+
+            contador_pedidos += 1
+            txt_dsp_id.value = f"ORD-{contador_pedidos}"
+            txt_dsp_cliente.value = ""
+            txt_dsp_cantidad.value = ""
+
+            recargar_vista_despachos()
+            page.update()
+
+        except ValidationError as err:
+            notificar(f"Validación: {err.errors()[0]['msg']}", es_error=True)
+        except (ValueError, KeyError) as err:
+            notificar(str(err), es_error=True)
+
+    def handle_despachar_siguiente(e) -> None:
+        try:
+            despachado = repo_despachos.despachar_siguiente()
+            notificar(
+                f"🚀 Despacho Exitoso: Se atendió la orden '{despachado.get_id_pedido()}' "
+                f"para '{despachado.get_cliente()}'. Stock actualizado en inventario."
+            )
+            recargar_todo()
+        except ColaVaciaError as err:
+            notificar(str(err), es_error=True)
+        except ValueError as err:
+            notificar(f"Error de stock: {err}", es_error=True)
+
+    def recargar_todo() -> None:
+        recargar_tabla_productos()
+        recargar_vista_despachos()
+
+    btn_encolar = ft.FilledButton(
+        "Encolar Pedido (Enqueue FIFO)",
+        icon=ft.Icons.INPUT,
+        bgcolor=ft.Colors.BLUE_700,
+        color=ft.Colors.WHITE,
+        height=40,
+        on_click=handle_encolar_despacho,
+    )
+
+    btn_despachar_fifo = ft.FilledButton(
+        "⚡ Despachar Siguiente Pedido (FIFO)",
+        icon=ft.Icons.DELIVERY_DINING,
+        bgcolor=ft.Colors.GREEN_700,
+        color=ft.Colors.WHITE,
+        height=44,
+        on_click=handle_despachar_siguiente,
+    )
+
+    # ========================================================
+    # ENSAMBLAJE DE VISTAS (PESTAÑAS)
+    # ========================================================
+
+    # Vista 1: Catálogo de Productos
+    metricas_cards_catalogo = ft.Row([
+        ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.INVENTORY, size=30, color=ft.Colors.BLUE_700),
+                ft.Column([
+                    ft.Text("Productos Distintos", size=11, color=ft.Colors.GREY_700),
+                    lbl_total_productos,
+                ], spacing=1),
+            ]),
+            bgcolor=ft.Colors.BLUE_50,
+            border=ft.Border.all(1, ft.Colors.BLUE_200),
+            border_radius=8,
+            padding=12,
+            expand=True,
+        ),
+        ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.STORAGE, size=30, color=ft.Colors.GREEN_700),
+                ft.Column([
+                    ft.Text("Total Unidades en Stock", size=11, color=ft.Colors.GREY_700),
+                    lbl_total_stock,
+                ], spacing=1),
+            ]),
+            bgcolor=ft.Colors.GREEN_50,
+            border=ft.Border.all(1, ft.Colors.GREEN_200),
+            border_radius=8,
+            padding=12,
+            expand=True,
+        ),
+        ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, size=30, color=ft.Colors.PURPLE_700),
+                ft.Column([
+                    ft.Text("Valor Total Inventario", size=11, color=ft.Colors.GREY_700),
+                    lbl_valor_inventario,
+                ], spacing=1),
+            ]),
+            bgcolor=ft.Colors.PURPLE_50,
+            border=ft.Border.all(1, ft.Colors.PURPLE_200),
+            border_radius=8,
+            padding=12,
+            expand=True,
+        ),
+    ], spacing=12)
+
+    card_form_producto = ft.Container(
+        content=ft.Column([
+            ft.Row([
+                ft.Icon(ft.Icons.APP_REGISTRATION, color=ft.Colors.BLUE_700),
+                ft.Text("Registro de Producto", size=15, weight=ft.FontWeight.BOLD),
+            ]),
+            ft.Divider(height=1, color=ft.Colors.GREY_300),
+            txt_codigo,
+            txt_nombre,
+            ft.Row([txt_precio, txt_stock], spacing=8),
+            dd_categoria,
+            ft.Divider(height=1, color=ft.Colors.GREY_300),
+            ft.Column([
+                ft.Row([btn_agregar_prod, btn_limpiar_prod], spacing=8),
+                ft.Row([btn_actualizar_prod, btn_eliminar_prod], spacing=8),
+            ], spacing=8),
+        ], spacing=10),
+        width=360,
+        bgcolor=ft.Colors.WHITE,
+        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
+        border_radius=10,
+        padding=16,
+    )
+
+    card_tabla_catalogo = ft.Container(
+        content=ft.Column([
+            ft.Row([
+                ft.Icon(ft.Icons.LIST_ALT, color=ft.Colors.BLUE_700),
+                ft.Text("Catálogo de Productos en Bodega", size=15, weight=ft.FontWeight.BOLD),
+            ]),
+            ft.Divider(height=1, color=ft.Colors.GREY_300),
+            ft.Row([txt_buscar, dd_filtro_cat], spacing=8),
+            ft.Container(
+                content=ft.ListView(
+                    controls=[tabla_productos],
+                    expand=True,
+                ),
+                expand=True,
+                border=ft.Border.all(1, ft.Colors.GREY_200),
+                border_radius=8,
+                padding=4,
+            ),
+        ], spacing=10),
+        expand=True,
+        bgcolor=ft.Colors.WHITE,
+        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
+        border_radius=10,
+        padding=16,
+    )
+
+    vista_catalogo = ft.Column([
+        metricas_cards_catalogo,
+        ft.Row([card_form_producto, card_tabla_catalogo], expand=True, spacing=12),
+    ], expand=True, spacing=10)
+
+    # Vista 2: Centro de Despachos (Cola FIFO)
+    metricas_cards_despacho = ft.Row([
+        ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.HOURGLASS_TOP, size=30, color=ft.Colors.ORANGE_700),
+                ft.Column([
+                    ft.Text("Órdenes en Espera (FIFO)", size=11, color=ft.Colors.GREY_700),
+                    lbl_cola_total,
+                ], spacing=1),
+            ]),
+            bgcolor=ft.Colors.ORANGE_50,
+            border=ft.Border.all(1, ft.Colors.ORANGE_200),
+            border_radius=8,
+            padding=12,
+            expand=1,
+        ),
+        ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.RECORD_VOICE_OVER, size=30, color=ft.Colors.BLUE_700),
+                ft.Column([
+                    ft.Text("Próximo en Turno (Frente de Cola)", size=11, color=ft.Colors.GREY_700),
+                    lbl_cola_frente,
+                ], spacing=1),
+            ]),
+            bgcolor=ft.Colors.BLUE_50,
+            border=ft.Border.all(1, ft.Colors.BLUE_200),
+            border_radius=8,
+            padding=12,
+            expand=2,
+        ),
+        ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.TASK_ALT, size=30, color=ft.Colors.TEAL_700),
+                ft.Column([
+                    ft.Text("Despachos Atendidos (Pila)", size=11, color=ft.Colors.GREY_700),
+                    lbl_historial_total,
+                ], spacing=1),
+            ]),
+            bgcolor=ft.Colors.TEAL_50,
+            border=ft.Border.all(1, ft.Colors.TEAL_200),
+            border_radius=8,
+            padding=12,
+            expand=1,
+        ),
+    ], spacing=12)
+
+    card_form_despacho = ft.Container(
+        content=ft.Column([
+            ft.Row([
+                ft.Icon(ft.Icons.POST_ADD, color=ft.Colors.BLUE_700),
+                ft.Text("Solicitar Nueva Salida de Bodega", size=15, weight=ft.FontWeight.BOLD),
+            ]),
+            ft.Divider(height=1, color=ft.Colors.GREY_300),
+            ft.Row([txt_dsp_id, txt_dsp_cliente], spacing=8),
+            dd_dsp_producto,
+            txt_dsp_cantidad,
+            btn_encolar,
+            ft.Divider(height=1, color=ft.Colors.GREY_300),
+            ft.Text(
+                "ℹ️ Los pedidos ingresados se forman en la Cola FIFO manual. "
+                "Al despachar, se atiende estrictamente el pedido con mayor tiempo en espera.",
+                size=12,
+                color=ft.Colors.GREY_700,
+            ),
+        ], spacing=10),
+        width=400,
+        bgcolor=ft.Colors.WHITE,
+        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
+        border_radius=10,
+        padding=16,
+    )
+
+    card_cola_visual = ft.Container(
+        content=ft.Column([
+            ft.Row([
+                ft.Row([
+                    ft.Icon(ft.Icons.QUEUE, color=ft.Colors.GREEN_700),
+                    ft.Text("Cola de Despacho en Tiempo Real (TDA ColaLineal - FIFO)", size=15, weight=ft.FontWeight.BOLD),
+                ]),
+                btn_despachar_fifo,
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ft.Divider(height=1, color=ft.Colors.GREY_300),
+            ft.Container(
+                content=lista_visual_cola,
+                expand=True,
+                bgcolor=ft.Colors.GREY_50,
+                border_radius=8,
+            ),
+            ft.Row([
+                ft.Icon(ft.Icons.HISTORY, size=18, color=ft.Colors.TEAL_700),
+                ft.Text("Historial de Salidas Procesadas (TDA PilaLineal - LIFO)", size=13, weight=ft.FontWeight.BOLD),
+            ]),
+            ft.Container(
+                content=lista_visual_historial,
+                height=140,
+                border=ft.Border.all(1, ft.Colors.GREY_200),
+                border_radius=8,
+            ),
+        ], spacing=8),
+        expand=True,
+        bgcolor=ft.Colors.WHITE,
+        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
+        border_radius=10,
+        padding=16,
+    )
+
+    vista_despachos = ft.Column([
+        metricas_cards_despacho,
+        ft.Row([card_form_despacho, card_cola_visual], expand=True, spacing=12),
+    ], expand=True, spacing=10)
+
+    # Navegación por pestañas (Tabs)
+    tabs = ft.Tabs(
+        selected_index=0,
+        animation_duration=200,
+        tabs=[
+            ft.Tab(
+                text="Catálogo de Productos (Inventario)",
+                icon=ft.Icons.INVENTORY_2,
+                content=vista_catalogo,
+            ),
+            ft.Tab(
+                text="Centro de Despachos (Cola FIFO)",
+                icon=ft.Icons.LOCAL_SHIPPING,
+                content=vista_despachos,
+            ),
+        ],
+        expand=True,
     )
 
     def toggle_theme(e):
@@ -402,25 +869,22 @@ def crear_aplicacion(page: ft.Page) -> None:
 
     theme_btn = ft.IconButton(
         icon=ft.Icons.DARK_MODE,
-        tooltip="Cambiar Modo Claro / Oscuro",
+        tooltip="Modo Claro / Oscuro",
         on_click=toggle_theme,
     )
 
-    # ESTRUCTURA VISUAL (LAYOUT)
-
-    # Encabezado
     header = ft.Container(
         content=ft.Row([
             ft.Row([
-                ft.Icon(ft.Icons.WAREHOUSE, size=38, color=ft.Colors.BLUE_700),
+                ft.Icon(ft.Icons.WAREHOUSE, size=36, color=ft.Colors.BLUE_700),
                 ft.Column([
                     ft.Text(
-                        "Sistema de Gestión de Bodega — Catálogo de Productos",
-                        size=20,
+                        "Sistema de Gestión de Bodega — Patrones de Diseño y TDAs Lineales",
+                        size=18,
                         weight=ft.FontWeight.BOLD,
                     ),
                     ft.Text(
-                        "POO Semanas 5 y 6 (Colecciones list/dict/set, GUI en Flet y Manejo de Eventos) | Estudiante: Luis Alberto Villegas Merchan",
+                        "Semana 7: ColaLineal FIFO manual, Patrón Repository y Testing Pytest | Luis Alberto Villegas Merchan",
                         size=12,
                         color=ft.Colors.GREY_700,
                     ),
@@ -428,130 +892,23 @@ def crear_aplicacion(page: ft.Page) -> None:
             ]),
             theme_btn,
         ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-        padding=ft.Padding.only(bottom=10),
-    )
-
-    # Tarjetas de Métricas
-    metricas_cards = ft.Row([
-        ft.Container(
-            content=ft.Row([
-                ft.Icon(ft.Icons.INVENTORY, size=32, color=ft.Colors.BLUE_700),
-                ft.Column([
-                    ft.Text("Productos Distintos (set/dict)", size=12, color=ft.Colors.GREY_700),
-                    lbl_total_productos,
-                ], spacing=1),
-            ]),
-            bgcolor=ft.Colors.BLUE_50,
-            border=ft.Border.all(1, ft.Colors.BLUE_200),
-            border_radius=10,
-            padding=15,
-            expand=True,
-        ),
-        ft.Container(
-            content=ft.Row([
-                ft.Icon(ft.Icons.STORAGE, size=32, color=ft.Colors.GREEN_700),
-                ft.Column([
-                    ft.Text("Total Unidades en Stock", size=12, color=ft.Colors.GREY_700),
-                    lbl_total_stock,
-                ], spacing=1),
-            ]),
-            bgcolor=ft.Colors.GREEN_50,
-            border=ft.Border.all(1, ft.Colors.GREEN_200),
-            border_radius=10,
-            padding=15,
-            expand=True,
-        ),
-        ft.Container(
-            content=ft.Row([
-                ft.Icon(ft.Icons.ACCOUNT_BALANCE_WALLET, size=32, color=ft.Colors.PURPLE_700),
-                ft.Column([
-                    ft.Text("Valor Total del Inventario", size=12, color=ft.Colors.GREY_700),
-                    lbl_valor_inventario,
-                ], spacing=1),
-            ]),
-            bgcolor=ft.Colors.PURPLE_50,
-            border=ft.Border.all(1, ft.Colors.PURPLE_200),
-            border_radius=10,
-            padding=15,
-            expand=True,
-        ),
-    ], spacing=15)
-
-    # Panel Izquierdo: Formulario de Registro / Edición
-    card_formulario = ft.Container(
-        content=ft.Column([
-            ft.Row([
-                ft.Icon(ft.Icons.APP_REGISTRATION, color=ft.Colors.BLUE_700),
-                ft.Text("Formulario de Producto", size=16, weight=ft.FontWeight.BOLD),
-            ]),
-            ft.Divider(height=1, color=ft.Colors.GREY_300),
-            txt_codigo,
-            txt_nombre,
-            ft.Row([txt_precio, txt_stock], spacing=10),
-            dd_categoria,
-            ft.Divider(height=1, color=ft.Colors.GREY_300),
-            ft.Column([
-                ft.Row([btn_agregar, btn_limpiar], spacing=10),
-                ft.Row([btn_actualizar, btn_eliminar], spacing=10),
-            ], spacing=10),
-        ], spacing=12),
-        width=380,
-        bgcolor=ft.Colors.WHITE,
-        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
-        border_radius=12,
-        padding=18,
-    )
-
-    # Panel Derecho: Búsqueda, Filtros y Tabla
-    card_catalogo = ft.Container(
-        content=ft.Column([
-            ft.Row([
-                ft.Icon(ft.Icons.LIST_ALT, color=ft.Colors.BLUE_700),
-                ft.Text("Catálogo de Productos en Inventario", size=16, weight=ft.FontWeight.BOLD),
-            ]),
-            ft.Divider(height=1, color=ft.Colors.GREY_300),
-            ft.Row([txt_buscar, dd_filtro_cat], spacing=10),
-            ft.Container(
-                content=ft.ListView(
-                    controls=[tabla_productos],
-                    expand=True,
-                ),
-                expand=True,
-                border=ft.Border.all(1, ft.Colors.GREY_200),
-                border_radius=8,
-                padding=5,
-            ),
-        ], spacing=12),
-        expand=True,
-        bgcolor=ft.Colors.WHITE,
-        border=ft.Border.all(1, ft.Colors.BLUE_GREY_100),
-        border_radius=12,
-        padding=18,
-    )
-
-    # Armado final del contenido de la página
-    cuerpo_principal = ft.Row(
-        [card_formulario, card_catalogo],
-        alignment=ft.MainAxisAlignment.START,
-        vertical_alignment=ft.CrossAxisAlignment.START,
-        expand=True,
-        spacing=15,
+        padding=ft.Padding.only(bottom=6),
     )
 
     page.add(
         ft.Column(
-            [header, metricas_cards, ft.Container(height=5), cuerpo_principal],
+            [header, tabs],
             expand=True,
-            spacing=10,
+            spacing=8,
         )
     )
 
-    # Carga inicial de datos en la tabla
-    recargar_tabla()
+    # Carga inicial completa
+    recargar_todo()
 
 
 def main():
-    """Ejecuta la aplicación de escritorio Flet."""
+    """Ejecuta la interfaz Flet."""
     if hasattr(ft, "run"):
         ft.run(crear_aplicacion)
     else:

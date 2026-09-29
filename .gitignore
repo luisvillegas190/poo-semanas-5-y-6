@@ -1,24 +1,24 @@
 # Entornos virtuales
 .venv/
-env/
 venv/
+env/
 
 # Caché de Python
 __pycache__/
 *.py[cod]
+*$py.class
 
-# Ruff
+# Pytest y Cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Linters
 .ruff_cache/
 
-# Flet
-__flet_build__/
-
-# Configuración del editor
+# Archivos de sistema operativo e IDEs
 .vscode/
 .idea/
-
-# Documentos y archivos del sistema
-.DS_Store
+*.swp
 Thumbs.db
-*.pdf
-*.docx
+Desktop.ini
